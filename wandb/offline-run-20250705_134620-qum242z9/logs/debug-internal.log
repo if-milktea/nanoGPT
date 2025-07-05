@@ -1,0 +1,15 @@
+{"time":"2025-07-05T13:46:21.1514682+09:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"D:\\github\\nanoGPT\\wandb\\offline-run-20250705_134620-qum242z9\\logs\\debug-core.log"}
+{"time":"2025-07-05T13:46:21.4896987+09:00","level":"WARN","msg":"GraphQL client is nil, skipping feature loading"}
+{"time":"2025-07-05T13:46:21.4896987+09:00","level":"INFO","msg":"created new stream","id":"qum242z9"}
+{"time":"2025-07-05T13:46:21.4896987+09:00","level":"INFO","msg":"stream: started","id":"qum242z9"}
+{"time":"2025-07-05T13:46:21.4896987+09:00","level":"INFO","msg":"handler: started","stream_id":"qum242z9"}
+{"time":"2025-07-05T13:46:21.4896987+09:00","level":"INFO","msg":"sender: started","stream_id":"qum242z9"}
+{"time":"2025-07-05T13:46:21.4896987+09:00","level":"INFO","msg":"writer: Do: started","stream_id":"qum242z9"}
+{"time":"2025-07-05T13:46:21.4943521+09:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-07-05T16:41:57.7559029+09:00","level":"INFO","msg":"stream: closing","id":"qum242z9"}
+{"time":"2025-07-05T16:41:57.7569046+09:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-07-05T16:41:57.7569046+09:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-07-05T16:41:57.7569046+09:00","level":"INFO","msg":"handler: closed","stream_id":"qum242z9"}
+{"time":"2025-07-05T16:41:57.7569046+09:00","level":"INFO","msg":"writer: Close: closed","stream_id":"qum242z9"}
+{"time":"2025-07-05T16:41:57.7569046+09:00","level":"INFO","msg":"sender: closed","stream_id":"qum242z9"}
+{"time":"2025-07-05T16:41:57.7569046+09:00","level":"INFO","msg":"stream: closed","id":"qum242z9"}

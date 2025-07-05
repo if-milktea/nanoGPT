@@ -1,0 +1,44 @@
+{
+  "os": "Windows-10-10.0.22631-SP0",
+  "python": "CPython 3.11.9",
+  "startedAt": "2025-07-05T04:46:21.100175Z",
+  "args": [
+    "config/train_dolly_ja.py"
+  ],
+  "program": "D:\\github\\nanoGPT\\train.py",
+  "codePath": "train.py",
+  "git": {
+    "remote": "https://github.com/if-milktea/nanoGPT.git",
+    "commit": "a61815798fa812553989b3f03f0b1669c82691a8"
+  },
+  "root": "D:\\github\\nanoGPT",
+  "host": "DESKTOP-4LOFCS4",
+  "executable": "D:\\github\\nanoGPT\\venv\\Scripts\\python.exe",
+  "codePathLocal": "train.py",
+  "cpu_count": 4,
+  "cpu_count_logical": 8,
+  "gpu": "NVIDIA GeForce RTX 3060 Ti",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "1000186310656",
+      "used": "539128205312"
+    }
+  },
+  "memory": {
+    "total": "34287943680"
+  },
+  "cpu": {
+    "count": 4,
+    "countLogical": 8
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA GeForce RTX 3060 Ti",
+      "memoryTotal": "8589934592",
+      "cudaCores": 4864,
+      "architecture": "Ampere"
+    }
+  ],
+  "cudaVersion": "12.6"
+}

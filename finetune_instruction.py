@@ -1,28 +1,28 @@
 """
-事前学習用トレーニングスクリプト
-このスクリプトは、大規模テキストデータセットでGPTモデルの事前学習を行います。
+インストラクションチューニング用トレーニングスクリプト
+このスクリプトは、事前学習済みGPTモデルをインストラクションデータでファインチューニングします。
 
-事前学習 → インストラクションチューニングの2段階学習の第1段階です。
+事前学習 → インストラクションチューニングの2段階学習の第2段階です。
 
 実行例:
-$ python train.py config/pretrain_japanese.py
+$ python finetune_instruction.py config/train_dolly_ja.py
 
-サポートする実行方法:
-1. シングルGPUでのデバッグモード
-2. 分散データ並列（DDP）を使用した大規模トレーニング
+使用方法:
+1. 事前に train.py で事前学習を実行し、out_pretrain にモデルを保存しておく
+2. このスクリプトで事前学習済みモデルをインストラクションデータでファインチューニング
 
-シングルGPUでの実行例：
-$ python train.py --batch_size=32 --compile=False
+実行例:
+# 事前学習済みモデルのファインチューニング
+$ python finetune_instruction.py config/train_dolly_ja.py
 
-1つのノードで4つのGPUを使用したDDPでの実行例：
-$ torchrun --standalone --nproc_per_node=4 train.py
+# 特定のチェックポイントからのファインチューニング
+$ python finetune_instruction.py --init_from="out_pretrain/ckpt.pt"
 
-2つのノードで4つのGPUを使用したDDPでの実行例：
-- 最初の（マスター）ノードで実行（例：IPアドレス 123.456.123.456）：
-$ torchrun --nproc_per_node=8 --nnodes=2 --node_rank=0 --master_addr=123.456.123.456 --master_port=1234 train.py
-- ワーカーノードで実行：
-$ torchrun --nproc_per_node=8 --nnodes=2 --node_rank=1 --master_addr=123.456.123.456 --master_port=1234 train.py
-（InfiniBandインターコネクトがないクラスタの場合は、NCCL_IB_DISABLE=1を先頭に付けてください）
+シングルGPUでのデバッグモード:
+$ python finetune_instruction.py --batch_size=16 --compile=False
+
+分散データ並列（DDP）での実行:
+$ torchrun --standalone --nproc_per_node=4 finetune_instruction.py config/train_dolly_ja.py
 """
 
 import os
@@ -40,59 +40,60 @@ from model import GPTConfig, GPT
 from dataset_loader import create_hf_dataloader, DATASET_CONFIGS
 
 # -----------------------------------------------------------------------------
-# 日本語事前学習用のデフォルト設定値
+# インストラクションチューニング用のデフォルト設定値
 # 入出力設定
-out_dir = 'out_pretrain'  # 事前学習モデルの保存先
-eval_interval = 1000    # 事前学習では評価間隔を長く
-log_interval = 100       # ログ出力間隔
-eval_iters = 200      # 評価イテレーション数
-eval_only = False # Trueの場合、最初の評価後にスクリプトを終了
+out_dir = 'out_dolly_ja'  # インストラクションチューニングモデルの保存先
+eval_interval = 500      # インストラクションチューニングでは頻繁に評価
+log_interval = 50        # ログ出力間隔（頻繁にログを出力）
+eval_iters = 100         # 評価イテレーション数
+eval_only = False        # Trueの場合、最初の評価後にスクリプトを終了
 always_save_checkpoint = True # Trueの場合、評価後に常にチェックポイントを保存
-init_from = 'scratch' # 'scratch'または'resume'またはGPT-2モデル名
+init_from = 'out_pretrain/ckpt.pt' # 事前学習済みモデルから開始
 # wandbによるログ記録
 wandb_log = True # デフォルトで有効
-wandb_project = 'nanogpt-japanese-pretrain'
-wandb_run_name = 'pretrain-japanese'
+wandb_project = 'nanogpt-japanese-instruction'
+wandb_run_name = 'dolly-ja-finetune'
 # データ設定
-dataset = 'wikitext'  # 事前学習用データセット
-# 外部データセット設定
+dataset = 'dolly_ja'  # インストラクション用データセット
+# 外部データセット設定（インストラクションチューニング用）
 use_external_dataset = True  # 外部データセットを使用
-dataset_name = "wikitext"  # Hugging Faceデータセット名
-dataset_config = "wikitext-103-raw-v1"  # データセット設定
+dataset_name = "kunishou/databricks-dolly-15k-ja"  # Hugging Faceデータセット名
+dataset_config = None  # データセット設定
 text_column = "text"  # テキストカラム名
-streaming = True  # 大規模データセットなのでストリーミング
+streaming = False  # インストラクションデータは小さいのでストリーミングなし
 cache_dir = None  # キャッシュディレクトリ
 tokenizer_type = "gpt2"  # トークナイザーの種類
-# 指示応答形式設定（事前学習では使用しない）
-format_instruction = False  # 事前学習では指示フォーマットを使用しない
-instruction_template = None  # 事前学習では不要
-gradient_accumulation_steps = 8    # 事前学習用に大きな実効バッチサイズ
-batch_size = 4  # 事前学習用バッチサイズ
-block_size = 1024  # 長いコンテキスト長
-# モデル設定（事前学習用に拡張）
-n_layer = 16          # レイヤー数を増加
-n_head = 16           # ヘッド数を増加
-n_embd = 1024         # 埋め込み次元数を増加
-dropout = 0.05        # 事前学習では低めのドロップアウト
-bias = False # LayerNormとLinear層でバイアスを使用するか
-# AdamWオプティマイザー設定
-learning_rate = 3e-4 # 事前学習用学習率
-max_iters = 100000  # 長期間の事前学習
-weight_decay = 0.1
+# 指示応答形式設定（インストラクションチューニングでは必須）
+format_instruction = True  # インストラクション形式でフォーマット
+instruction_template = "chat"  # チャット形式のテンプレートを使用
+# インストラクションチューニング用バッチ設定
+gradient_accumulation_steps = 4  # ファインチューニング用
+batch_size = 8  # インストラクションチューニング用バッチサイズ
+block_size = 1024  # コンテキスト長
+# モデル設定（事前学習済みモデルから継承されるため通常は不要だが、上書き可能）
+n_layer = 16          # 事前学習と同じ
+n_head = 16           # 事前学習と同じ
+n_embd = 1024         # 事前学習と同じ
+dropout = 0.1         # ファインチューニングでは少し高め
+bias = False          # 事前学習と同じ
+# AdamWオプティマイザー設定（ファインチューニング用）
+learning_rate = 1e-5  # ファインチューニング用の低い学習率
+max_iters = 5000      # インストラクションチューニングは短期間
+weight_decay = 0.01   # 軽い正則化
 beta1 = 0.9
 beta2 = 0.95
-grad_clip = 1.0 # この値で勾配をクリッピング（0.0の場合は無効）
-# 学習率減衰設定
-decay_lr = True # 学習率を減衰させるかどうか
-warmup_iters = 5000  # 長めのウォームアップ
-lr_decay_iters = 100000  # 全学習期間に渡って減衰
-min_lr = 3e-5 # 最小学習率
+grad_clip = 1.0       # 勾配クリッピング
+# 学習率減衰設定（ファインチューニング用）
+decay_lr = True       # 学習率を減衰
+warmup_iters = 100    # 短いウォームアップ
+lr_decay_iters = 5000 # 全学習期間に渡って減衰
+min_lr = 1e-6         # 最小学習率
 # DDP設定
-backend = 'nccl' # 'nccl', 'gloo'など
+backend = 'nccl'      # 'nccl', 'gloo'など
 # システム設定
-device = 'cuda' # 'cpu', 'cuda', 'cuda:0', 'cuda:1'など、またはMacbookでは'mps'
-dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32', 'bfloat16', または 'float16'（後者は自動的にGradScalerを実装）
-compile = False # コンパイルを無効化してTritonエラーを回避
+device = 'cuda'       # 'cpu', 'cuda', 'cuda:0', 'cuda:1'など、またはMacbookでは'mps'
+dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16'
+compile = False       # 安定性のため無効
 
 # エラー抑制の設定を追加
 import torch._dynamo
@@ -122,13 +123,15 @@ else:
     master_process = True
     seed_offset = 0
     ddp_world_size = 1
+
 tokens_per_iter = gradient_accumulation_steps * ddp_world_size * batch_size * block_size
-print(f"事前学習を開始します")
+print(f"インストラクションチューニングを開始します")
+print(f"事前学習済みモデル読み込み元: {init_from}")
 print(f"イテレーションあたりのトークン数: {tokens_per_iter:,}")
 print(f"使用データセット: {dataset_name}")
 print(f"保存先ディレクトリ: {out_dir}")
 print(f"予定学習イテレーション: {max_iters:,}")
-print(f"推定学習時間: {max_iters * 2 / 3600:.1f}時間（GPU性能に依存）")
+print(f"推定学習時間: {max_iters * 0.5 / 3600:.1f}時間（GPU性能に依存）")
 
 if master_process:
     os.makedirs(out_dir, exist_ok=True)
@@ -140,13 +143,10 @@ device_type = 'cuda' if 'cuda' in device else 'cpu' # 後で torch.autocast で�
 ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
 ctx = nullcontext() if device_type == 'cpu' else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
 
-# シンプルなデータローダー
-data_dir = os.path.join('data', dataset)
-
 # 外部データセット用のデータローダー
 external_dataloader = None
 if use_external_dataset:
-    print(f"外部データセット '{dataset_name}' を設定しています...")
+    print(f"インストラクション用外部データセット '{dataset_name}' を設定しています...")
     
     # 設定辞書を作成
     if dataset_name in DATASET_CONFIGS:
@@ -170,38 +170,23 @@ if use_external_dataset:
     
     try:
         external_dataloader = create_hf_dataloader(dataset_name, hf_config, device)
-        print(f"外部データセット '{dataset_name}' の初期化が完了しました")
+        print(f"インストラクション用外部データセット '{dataset_name}' の初期化が完了しました")
+        print(f"フォーマット設定: format_instruction={format_instruction}, template={instruction_template}")
     except Exception as e:
         print(f"外部データセットの初期化に失敗しました: {e}")
-        print("ローカルデータセットにフォールバックします")
-        use_external_dataset = False
+        print("インストラクションチューニングには外部データセットが必要です")
+        raise
 
 def get_batch(split):
     if use_external_dataset and external_dataloader:
-        # 外部データセットを使用
+        # 外部データセットを使用（インストラクションチューニングでは必須）
         try:
             return external_dataloader.get_batch(split)
         except Exception as e:
             print(f"外部データセットからのバッチ取得エラー: {e}")
-            # エラーの場合はローカルデータセットにフォールバック
-            pass
-    
-    # ローカルデータセットを使用
-    # メモリリーク防止のため、バッチごとにnp.memmapを再作成
-    # 参照: https://stackoverflow.com/questions/45132940/numpy-memmap-memory-usage-want-to-iterate-once/61472122#61472122
-    if split == 'train':
-        data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
+            raise
     else:
-        data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
-    ix = torch.randint(len(data) - block_size, (batch_size,))
-    x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
-    y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
-    if device_type == 'cuda':
-        # x,yを非同期でGPUに転送できるようにピン止めメモリを使用
-        x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(device, non_blocking=True)
-    else:
-        x, y = x.to(device), y.to(device)
-    return x, y
+        raise ValueError("インストラクションチューニングには外部データセットが必要です")
 
 # 変数の初期化（init_from='resume'の場合は上書きされる）
 iter_num = 0
@@ -213,24 +198,14 @@ if use_external_dataset and external_dataloader:
     # 外部データセットの場合
     meta_vocab_size = external_dataloader.get_vocab_size()
     print(f"外部データセットのvocab_size = {meta_vocab_size}")
-else:
-    # ローカルデータセットの場合
-    meta_path = os.path.join(data_dir, 'meta.pkl')
-    if os.path.exists(meta_path):
-        with open(meta_path, 'rb') as f:
-            meta = pickle.load(f)
-        meta_vocab_size = meta['vocab_size']
-        print(f"vocab_size = {meta_vocab_size} を {meta_path} から読み込みました")
 
 # モデルの初期化
 model_args = dict(n_layer=n_layer, n_head=n_head, n_embd=n_embd, block_size=block_size,
-                  bias=bias, vocab_size=None, dropout=dropout) # コマンドラインからのmodel_argsで開始
+                  bias=bias, vocab_size=None, dropout=dropout)
+
 if init_from == 'scratch':
-    # 新しいモデルをスクラッチから初期化
-    print("新しいモデルをスクラッチから初期化します")
-    # スクラッチ学習用のvocab_sizeを決定
-    if meta_vocab_size is None:
-        print("GPT-2のvocab_sizeをデフォルトの50304（50257を効率のため切り上げ）に設定")
+    # スクラッチから開始（通常はインストラクションチューニングでは使用しない）
+    print("新しいモデルをスクラッチから初期化します（注意：インストラクションチューニングでは通常事前学習済みモデルを使用します）")
     model_args['vocab_size'] = meta_vocab_size if meta_vocab_size is not None else 50304
     gptconf = GPTConfig(**model_args)
     model = GPT(gptconf)
@@ -241,14 +216,13 @@ elif init_from == 'resume':
     checkpoint = torch.load(ckpt_path, map_location=device)
     checkpoint_model_args = checkpoint['model_args']
     # これらの設定属性は学習再開のために一致している必要がある
-    # その他の属性（dropout等）はコマンドラインから指定可能
     for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
         model_args[k] = checkpoint_model_args[k]
     # モデルを作成
     gptconf = GPTConfig(**model_args)
     model = GPT(gptconf)
     state_dict = checkpoint['model']
-    # state dictのキーを修正（デバッグ要）
+    # state dictのキーを修正
     unwanted_prefix = '_orig_mod.'
     for k,v in list(state_dict.items()):
         if k.startswith(unwanted_prefix):
@@ -256,34 +230,62 @@ elif init_from == 'resume':
     model.load_state_dict(state_dict)
     iter_num = checkpoint['iter_num']
     best_val_loss = checkpoint['best_val_loss']
+elif os.path.exists(init_from):
+    # 事前学習済みモデルからファインチューニング開始
+    print(f"事前学習済みモデルから初期化: {init_from}")
+    checkpoint = torch.load(init_from, map_location=device)
+    checkpoint_model_args = checkpoint['model_args']
+    # 事前学習済みモデルの設定を使用
+    for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
+        model_args[k] = checkpoint_model_args[k]
+    # dropout率は更新可能
+    model_args['dropout'] = dropout
+    # モデルを作成
+    gptconf = GPTConfig(**model_args)
+    model = GPT(gptconf)
+    state_dict = checkpoint['model']
+    # state dictのキーを修正
+    unwanted_prefix = '_orig_mod.'
+    for k,v in list(state_dict.items()):
+        if k.startswith(unwanted_prefix):
+            state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+    model.load_state_dict(state_dict)
+    # インストラクションチューニングでは新しい学習を開始
+    iter_num = 0
+    best_val_loss = 1e9
+    print(f"事前学習済みモデル（イテレーション{checkpoint.get('iter_num', 'unknown')}）からファインチューニングを開始")
 elif init_from.startswith('gpt2'):
     print(f"OpenAI GPT-2の重みから初期化: {init_from}")
     # OpenAI GPT-2の重みから初期化
     override_args = dict(dropout=dropout)
     model = GPT.from_pretrained(init_from, override_args)
-    # 作成された設定パラメータを読み取り、チェックポイントに正しく保存できるようにする
+    # 作成された設定パラメータを読み取り
     for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
         model_args[k] = getattr(model.config, k)
+else:
+    raise ValueError(f"不明なinit_from値: {init_from}")
+
 # 必要に応じてモデルのブロックサイズを縮小
 if block_size < model.config.block_size:
     model.crop_block_size(block_size)
-    model_args['block_size'] = block_size # チェックポイントに正しい値を保存するため
+    model_args['block_size'] = block_size
+
 model.to(device)
 
-# GradScalerの初期化（enabled=Falseの場合はno-op）
+# GradScalerの初期化
 scaler = torch.cuda.amp.GradScaler(enabled=(dtype == 'float16'))
 
-# オプティマイザー
+# オプティマイザー（インストラクションチューニング用の設定で新規作成）
 optimizer = model.configure_optimizers(weight_decay, learning_rate, (beta1, beta2), device_type)
-if init_from == 'resume':
-    optimizer.load_state_dict(checkpoint['optimizer'])
+print(f"インストラクションチューニング用オプティマイザーを作成しました（学習率: {learning_rate}）")
+
 checkpoint = None # メモリ解放
 
 # モデルのコンパイル
 if compile:
     print("モデルをコンパイルしています...（約1分かかります）")
     unoptimized_model = model
-    model = torch.compile(model) # PyTorch 2.0が必要
+    model = torch.compile(model)
 
 # モデルをDDPコンテナでラップ
 if ddp:
@@ -316,7 +318,7 @@ def get_lr(it):
     # 3) その間はコサイン減衰で最小学習率まで減衰
     decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)
     assert 0 <= decay_ratio <= 1
-    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # 係数は0..1
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
     return min_lr + coeff * (learning_rate - min_lr)
 
 # ログ記録の設定
@@ -324,12 +326,21 @@ if wandb_log and master_process:
     import wandb
     wandb.init(project=wandb_project, name=wandb_run_name, config=config)
 
+# 初期評価
+if master_process:
+    print("インストラクションチューニング開始前の初期評価を実行します...")
+    initial_losses = estimate_loss()
+    print(f"初期状態: 学習損失 {initial_losses['train']:.4f}, 検証損失 {initial_losses['val']:.4f}")
+
 # 学習ループ
 X, Y = get_batch('train') # 最初のバッチを取得
 t0 = time.time()
 local_iter_num = 0 # このプロセスの生存期間中のイテレーション数
 raw_model = model.module if ddp else model # DDPコンテナが必要な場合はアンラップ
 running_mfu = -1.0
+
+print(f"インストラクションチューニングループを開始します（最大{max_iters}イテレーション）...")
+
 while True:
 
     # このイテレーションの学習率を決定して設定
@@ -341,16 +352,29 @@ while True:
     if iter_num % eval_interval == 0 and master_process:
         losses = estimate_loss()
         print(f"ステップ {iter_num}: 学習損失 {losses['train']:.4f}, 検証損失 {losses['val']:.4f}")
+        
+        # 早期停止の判定（インストラクションチューニングでは過学習に注意）
+        if iter_num > 0:
+            val_improvement = (best_val_loss - losses['val']) / best_val_loss * 100
+            if val_improvement > 0:
+                print(f"検証損失が改善しました ({val_improvement:.2f}%改善)")
+            else:
+                print(f"検証損失が悪化しました ({-val_improvement:.2f}%悪化)")
+        
         if wandb_log:
             wandb.log({
                 "iter": iter_num,
                 "train/loss": losses['train'],
                 "val/loss": losses['val'],
                 "lr": lr,
-                "mfu": running_mfu*100, # パーセンテージに変換
+                "mfu": running_mfu*100,
             })
+            
         if losses['val'] < best_val_loss or always_save_checkpoint:
-            best_val_loss = losses['val']
+            if losses['val'] < best_val_loss:
+                best_val_loss = losses['val']
+                print(f"新しいベスト検証損失: {best_val_loss:.4f}")
+            
             if iter_num > 0:
                 checkpoint = {
                     'model': raw_model.state_dict(),
@@ -359,6 +383,7 @@ while True:
                     'iter_num': iter_num,
                     'best_val_loss': best_val_loss,
                     'config': config,
+                    'instruction_tuned': True,  # インストラクションチューニング済みフラグ
                 }
                 print(f"チェックポイントを {out_dir} に保存します")
                 torch.save(checkpoint, os.path.join(out_dir, 'ckpt.pt'))
@@ -367,33 +392,30 @@ while True:
                 if use_external_dataset and external_dataloader:
                     meta_save_path = os.path.join(out_dir, 'meta.pkl')
                     external_dataloader.save_tokenizer_meta(meta_save_path)
+                    
     if iter_num == 0 and eval_only:
         break
 
     # 勾配累積を使用してより大きなバッチサイズをシミュレート
-    # float16データ型の場合はGradScalerを使用
     for micro_step in range(gradient_accumulation_steps):
         if ddp:
-            # DDPトレーニングでは最後のマイクロステップでのみ勾配の同期が必要
-            # 公式の方法はmodel.no_sync()コンテキストマネージャーを使用することですが
-            # コードが膨らみ、繰り返しが必要になるため好ましくありません
-            # そのコンテキストマネージャーのソースを見ると、この変数を切り替えているだけです
             model.require_backward_grad_sync = (micro_step == gradient_accumulation_steps - 1)
         with ctx:
             logits, loss = model(X, Y)
             loss = loss / gradient_accumulation_steps # 勾配累積を考慮して損失をスケーリング
-        # モデルがGPUでforward passを実行している間に次のバッチを非同期にプリフェッチ
+        # 次のバッチを非同期にプリフェッチ
         X, Y = get_batch('train')
-        # 勾配のスケーリングありでバックワードパス（fp16の場合）
+        # バックワードパス
         scaler.scale(loss).backward()
+        
     # 勾配クリッピング
     if grad_clip != 0.0:
         scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-    # オプティマイザーのステップとfp16用のスケーラーの更新
+        
+    # オプティマイザーのステップ
     scaler.step(optimizer)
     scaler.update()
-    # 不要な勾配をできるだけ早くフラッシュ
     optimizer.zero_grad(set_to_none=True)
 
     # タイミングとログ記録
@@ -401,20 +423,23 @@ while True:
     dt = t1 - t0
     t0 = t1
     if iter_num % log_interval == 0 and master_process:
-        # 損失を浮動小数点として取得（これはCPU-GPU同期ポイント）
-        # 上記の除算を元に戻すためスケールアップし、真の合計損失を近似
-        # （正確には合計になるはずですが）
         lossf = loss.item() * gradient_accumulation_steps
-        if local_iter_num >= 5: # 学習ループが落ち着くまで待機
+        if local_iter_num >= 5:
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
         print(f"イテレーション {iter_num}: 損失 {lossf:.4f}, 時間 {dt*1000:.2f}ms, MFU {running_mfu*100:.2f}%")
+        
     iter_num += 1
     local_iter_num += 1
 
     # 終了条件
     if iter_num > max_iters:
+        print(f"最大イテレーション数({max_iters})に到達しました")
         break
+
+print("インストラクションチューニングが完了しました！")
+print(f"最終ベスト検証損失: {best_val_loss:.4f}")
+print(f"保存先: {out_dir}")
 
 if ddp:
     destroy_process_group()
