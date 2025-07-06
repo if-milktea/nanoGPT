@@ -104,19 +104,24 @@ class HuggingFaceDataLoader:
         print(f"データセット '{self.dataset_name}' を読み込んでいます...")
         
         try:
+            # mc4やcc100などのデータセットでtrust_remote_codeが必要な場合
+            trust_remote_code = self.dataset_name in ["mc4", "cc100"]
+            
             # データセットの読み込み
             if self.dataset_config:
                 self.dataset = load_dataset(
                     self.dataset_name,
                     self.dataset_config,
                     streaming=self.streaming,
-                    cache_dir=self.cache_dir
+                    cache_dir=self.cache_dir,
+                    trust_remote_code=trust_remote_code
                 )
             else:
                 self.dataset = load_dataset(
                     self.dataset_name,
                     streaming=self.streaming,
-                    cache_dir=self.cache_dir
+                    cache_dir=self.cache_dir,
+                    trust_remote_code=trust_remote_code
                 )
             
             print(f"データセットの読み込みが完了しました: {self.dataset}")
@@ -468,7 +473,7 @@ DATASET_CONFIGS = {
         "format_instruction": False
     },
     "fujiki/wiki40b_ja": {
-        "dataset_config": None,
+        "dataset_config": "default",  # wiki40b_jaの正しいconfig
         "text_column": "text", 
         "streaming": True,
         "format_instruction": False

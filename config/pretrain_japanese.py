@@ -3,8 +3,10 @@
 
 このファイルは、日本語の大規模テキストデータセットで事前学習を行うための設定を提供します。
 使用データセット:
-- ce-lery/mistral-3b-dataset: 高品質な日本語テキスト
-- fujiki/wiki40b_ja: 日本語Wikipedia
+- fujiki/wiki40b_ja: 日本語Wikipedia (~6GB)
+- ce-lery/mistral-3b-dataset: 高品質な日本語テキスト (~1.3GB)
+- mc4: mC4日本語版 (~500GB)
+- cc100: CC-100日本語版 (~100GB)
 
 使用例:
 $ python train.py config/pretrain_japanese.py
@@ -14,12 +16,12 @@ $ python train.py config/pretrain_japanese.py
 use_external_dataset = True  # 外部データセットを使用
 use_multi_dataset = True  # 複数データセット混合モードを有効
 
-# 混合データセットの設定（確実に動作するデータセットから開始）
+# 混合データセットの設定（4つの大規模日本語データセット）
 mixed_datasets = [
     {
-        "dataset_name": "ce-lery/mistral-3b-dataset",
-        "dataset_config": None,
-        "text_column": "text", 
+        "dataset_name": "fujiki/wiki40b_ja",
+        "dataset_config": "default",
+        "text_column": "text",
         "streaming": True,
         "tokenizer_type": "gpt2",
         "block_size": 512,
@@ -29,9 +31,9 @@ mixed_datasets = [
         "instruction_template": None
     },
     {
-        "dataset_name": "wikitext",
-        "dataset_config": "wikitext-103-raw-v1",
-        "text_column": "text",
+        "dataset_name": "ce-lery/mistral-3b-dataset",
+        "dataset_config": None,
+        "text_column": "text", 
         "streaming": True,
         "tokenizer_type": "gpt2",
         "block_size": 512,
@@ -39,20 +41,46 @@ mixed_datasets = [
         "seed": 1338,
         "format_instruction": False,
         "instruction_template": None
+    },
+    {
+        "dataset_name": "mc4",
+        "dataset_config": "ja",
+        "text_column": "text",
+        "streaming": True,
+        "tokenizer_type": "gpt2", 
+        "block_size": 512,
+        "batch_size": 1,
+        "seed": 1339,
+        "format_instruction": False,
+        "instruction_template": None
+    },
+    {
+        "dataset_name": "cc100",
+        "dataset_config": "ja",
+        "text_column": "text",
+        "streaming": True,
+        "tokenizer_type": "gpt2",
+        "block_size": 512,
+        "batch_size": 1,
+        "seed": 1340,
+        "format_instruction": False,
+        "instruction_template": None
     }
 ]
 
-# データセット混合比率（テスト用に2つのデータセット）
-# 段階的アプローチ：まず確実に動作する2つから開始
+# データセット混合比率（データサイズに基づく最適化）
+# 全データを効率的に活用するため、データセットサイズ比率に基づく設定
 dataset_mix_ratios = [
-    0.8,  # ce-lery/mistral-3b-dataset - 高品質な日本語
-    0.2   # wikitext - 英語だが安定したベースライン
+    0.05,  # wiki40b_ja (~6GB) - 小さいが高品質なので適度に
+    0.03,  # mistral-3b-dataset (~1.3GB) - 最小だが高品質
+    0.82,  # mC4 (~500GB) - 最大のデータセットなので大部分
+    0.10   # CC-100 (~100GB) - 大規模だが品質考慮
 ]
 
 # 学習スケジュール（全データ活用のため大幅延長）
-max_iters = 1000000  # 全データセットを活用するため大幅に延長
-warmup_iters = 50000  # 大規模データに対応した長いウォームアップ  
-lr_decay_iters = 1000000  # 全学習期間に渡って減衰
+max_iters = 4600000  # 全データを3周使用（151.8B ÷ 32.8K ≈ 4.6M iter）
+warmup_iters = 100000  # 大規模データに対応した長いウォームアップ  
+lr_decay_iters = 4600000  # 全学習期間に渡って減衰
 
 # フォールバック設定（混合データセットが利用できない場合）
 dataset_name = "ce-lery/mistral-3b-dataset"  # より確実な日本語データセット
@@ -75,7 +103,7 @@ log_interval = 1000   # ログ出力間隔（長期学習用に延長）
 eval_iters = 100      # 評価イテレーション数（時間節約）
 eval_only = False
 always_save_checkpoint = True
-init_from = 'scratch'  # スクラッチから開始
+init_from = 'resume'  # チェックポイントから再開
 
 # モデル設定（大規模データセット対応）
 n_layer = 16  # 大規模データに見合ったサイズに拡張
@@ -109,7 +137,7 @@ log_interval = 1000   # ログ間隔も長く
 eval_iters = 100      # 評価イテレーション数を削減
 
 # ログ記録
-wandb_log = True
+wandb_log = False  # テスト用にログをオフ
 wandb_project = 'nanogpt-japanese-pretrain'
 wandb_run_name = 'pretrain-japanese'
 
