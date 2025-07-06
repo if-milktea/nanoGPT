@@ -20,7 +20,15 @@ cache_dir = None  # キャッシュディレクトリ（Noneの場合はデフ�
 
 # 日本語対応の設定
 format_instruction = True  # 指示形式でテキストをフォーマットするか
-instruction_template = "chat"  # チャット形式のテンプレートを使用
+instruction_template = """<|system|>
+あなたは親切で知識豊富なAIアシスタントです。
+
+<|user|>
+{instruction}
+{input}
+
+<|assistant|>
+{output}"""  # モダンなチャット形式のテンプレート
 
 # トークナイザー設定
 tokenizer_type = "gpt2"  # "gpt2"または"custom"
@@ -36,9 +44,9 @@ always_save_checkpoint = True
 init_from = 'out_pretrain/ckpt.pt'  # 事前学習済みモデルから開始
 
 # データ設定
-gradient_accumulation_steps = 4  # インストラクションチューニング用
-batch_size = 8  # インストラクションチューニング用バッチサイズ
-block_size = 1024  # 指示応答ペアに対応するため長めのシーケンス
+gradient_accumulation_steps = 8  # より多くの勾配累積
+batch_size = 4  # バッチサイズを小さくして安定性向上
+block_size = 512  # より短いシーケンスで確実な学習
 
 # モデル設定（事前学習済みモデルから継承されるため通常は変更不要）
 n_layer = 16  # 事前学習と同じ（必要に応じて上書き可能）
@@ -48,9 +56,9 @@ dropout = 0.1 # ファインチューニングでは少し高め
 bias = False
 
 # 最適化設定（ファインチューニング用）
-learning_rate = 1e-5  # ファインチューニング用の低い学習率
-max_iters = 5000  # インストラクションチューニングは短期間
-weight_decay = 0.01   # 軽い正則化
+learning_rate = 5e-6  # さらに低い学習率でより慎重に学習
+max_iters = 3000  # 十分な学習時間を確保
+weight_decay = 0.1   # より強い正則化
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0

@@ -1,0 +1,15 @@
+{"time":"2025-07-07T01:30:55.0553133+09:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"D:\\github\\nanoGPT\\wandb\\offline-run-20250707_013054-cf0rzrn6\\logs\\debug-core.log"}
+{"time":"2025-07-07T01:30:55.1627721+09:00","level":"WARN","msg":"GraphQL client is nil, skipping feature loading"}
+{"time":"2025-07-07T01:30:55.1633322+09:00","level":"INFO","msg":"created new stream","id":"cf0rzrn6"}
+{"time":"2025-07-07T01:30:55.1633322+09:00","level":"INFO","msg":"stream: started","id":"cf0rzrn6"}
+{"time":"2025-07-07T01:30:55.1633322+09:00","level":"INFO","msg":"handler: started","stream_id":"cf0rzrn6"}
+{"time":"2025-07-07T01:30:55.1633322+09:00","level":"INFO","msg":"writer: Do: started","stream_id":"cf0rzrn6"}
+{"time":"2025-07-07T01:30:55.1633322+09:00","level":"INFO","msg":"sender: started","stream_id":"cf0rzrn6"}
+{"time":"2025-07-07T01:30:55.1675295+09:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-07-07T01:32:39.038651+09:00","level":"INFO","msg":"stream: closing","id":"cf0rzrn6"}
+{"time":"2025-07-07T01:32:39.038651+09:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-07-07T01:32:39.038651+09:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-07-07T01:32:39.038651+09:00","level":"INFO","msg":"handler: closed","stream_id":"cf0rzrn6"}
+{"time":"2025-07-07T01:32:39.038651+09:00","level":"INFO","msg":"writer: Close: closed","stream_id":"cf0rzrn6"}
+{"time":"2025-07-07T01:32:39.038651+09:00","level":"INFO","msg":"sender: closed","stream_id":"cf0rzrn6"}
+{"time":"2025-07-07T01:32:39.0396538+09:00","level":"INFO","msg":"stream: closed","id":"cf0rzrn6"}

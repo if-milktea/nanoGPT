@@ -1,0 +1,15 @@
+{"time":"2025-07-05T18:51:12.6494682+09:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"D:\\github\\nanoGPT\\wandb\\offline-run-20250705_185112-vfz8gcf6\\logs\\debug-core.log"}
+{"time":"2025-07-05T18:51:12.9855335+09:00","level":"WARN","msg":"GraphQL client is nil, skipping feature loading"}
+{"time":"2025-07-05T18:51:12.9855335+09:00","level":"INFO","msg":"created new stream","id":"vfz8gcf6"}
+{"time":"2025-07-05T18:51:12.9855335+09:00","level":"INFO","msg":"handler: started","stream_id":"vfz8gcf6"}
+{"time":"2025-07-05T18:51:12.986046+09:00","level":"INFO","msg":"stream: started","id":"vfz8gcf6"}
+{"time":"2025-07-05T18:51:12.9855335+09:00","level":"INFO","msg":"writer: Do: started","stream_id":"vfz8gcf6"}
+{"time":"2025-07-05T18:51:12.986046+09:00","level":"INFO","msg":"sender: started","stream_id":"vfz8gcf6"}
+{"time":"2025-07-05T18:51:13.0069403+09:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-07-06T17:46:56.2677416+09:00","level":"INFO","msg":"stream: closing","id":"vfz8gcf6"}
+{"time":"2025-07-06T17:46:56.2677416+09:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-07-06T17:46:56.2677416+09:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-07-06T17:46:56.2677416+09:00","level":"INFO","msg":"handler: closed","stream_id":"vfz8gcf6"}
+{"time":"2025-07-06T17:46:56.2677416+09:00","level":"INFO","msg":"writer: Close: closed","stream_id":"vfz8gcf6"}
+{"time":"2025-07-06T17:46:56.2677416+09:00","level":"INFO","msg":"sender: closed","stream_id":"vfz8gcf6"}
+{"time":"2025-07-06T17:46:56.2687728+09:00","level":"INFO","msg":"stream: closed","id":"vfz8gcf6"}

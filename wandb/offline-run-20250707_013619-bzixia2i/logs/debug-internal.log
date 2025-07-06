@@ -1,0 +1,15 @@
+{"time":"2025-07-07T01:36:19.3276097+09:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"D:\\github\\nanoGPT\\wandb\\offline-run-20250707_013619-bzixia2i\\logs\\debug-core.log"}
+{"time":"2025-07-07T01:36:19.4339965+09:00","level":"WARN","msg":"GraphQL client is nil, skipping feature loading"}
+{"time":"2025-07-07T01:36:19.4344986+09:00","level":"INFO","msg":"created new stream","id":"bzixia2i"}
+{"time":"2025-07-07T01:36:19.4344986+09:00","level":"INFO","msg":"handler: started","stream_id":"bzixia2i"}
+{"time":"2025-07-07T01:36:19.4344986+09:00","level":"INFO","msg":"sender: started","stream_id":"bzixia2i"}
+{"time":"2025-07-07T01:36:19.4344986+09:00","level":"INFO","msg":"stream: started","id":"bzixia2i"}
+{"time":"2025-07-07T01:36:19.4344986+09:00","level":"INFO","msg":"writer: Do: started","stream_id":"bzixia2i"}
+{"time":"2025-07-07T01:36:19.439763+09:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-07-07T01:36:55.6922918+09:00","level":"INFO","msg":"stream: closing","id":"bzixia2i"}
+{"time":"2025-07-07T01:36:55.6922918+09:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-07-07T01:36:55.6922918+09:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-07-07T01:36:55.6922918+09:00","level":"INFO","msg":"handler: closed","stream_id":"bzixia2i"}
+{"time":"2025-07-07T01:36:55.6922918+09:00","level":"INFO","msg":"writer: Close: closed","stream_id":"bzixia2i"}
+{"time":"2025-07-07T01:36:55.6922918+09:00","level":"INFO","msg":"sender: closed","stream_id":"bzixia2i"}
+{"time":"2025-07-07T01:36:55.6927955+09:00","level":"INFO","msg":"stream: closed","id":"bzixia2i"}

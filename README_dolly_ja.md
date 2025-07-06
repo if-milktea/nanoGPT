@@ -7,7 +7,11 @@
 ### 2段階学習プロセス
 
 1. **事前学習（train.py）**: 大規模な日本語テキストデータセットでGPTモデルを事前学習
+   - プライマリデータセット: `ce-lery/mistral-3b-dataset` (高品質な日本語テキスト)
+   - セカンダリデータセット: `fujiki/wiki40b_ja` (日本語Wikipedia)
+   - フォールバック: `wikitext-103-raw-v1` (アクセス失敗時)
 2. **インストラクションチューニング（finetune_instruction.py）**: 事前学習済みモデルを指示応答データセットでファインチューニング
+   - データセット: `kunishou/databricks-dolly-15k-ja` (15,000の日本語指示応答ペア)
 
 ## 第1段階: 事前学習
 

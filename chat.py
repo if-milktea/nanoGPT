@@ -83,15 +83,16 @@ def setup_tokenizer(checkpoint=None):
 
 def generate_response(model, ctx, encode, decode, user_input):
     """ユーザー入力に対する応答を生成"""
-    # システムプロンプトとユーザー入力を組み合わせる
-    formatted_prompt = f"""[System Prompt]
-{system_prompt}
+    # インストラクションチューニング時と同じ形式を使用
+    formatted_prompt = f"""<|system|>
+あなたは親切で知識豊富なAIアシスタントです。
 
-[User Input]
+<|user|>
 {user_input}
 
-[Assistant]
+<|assistant|>
 """
+    
     input_ids = encode(formatted_prompt)
     x = torch.tensor(input_ids, dtype=torch.long, device=device)[None, ...]
     
@@ -99,11 +100,21 @@ def generate_response(model, ctx, encode, decode, user_input):
         with ctx:
             y = model.generate(x, max_new_tokens, temperature=temperature, top_k=top_k)
             response = decode(y[0].tolist())
-            # システムプロンプトと入力部分を除去して応答のみを取得
-            assistant_start = response.find("[Assistant]")
+            
+            # 入力プロンプト部分を除去して応答のみを取得
+            # <|assistant|>以降の部分を抽出
+            assistant_start = response.find("<|assistant|>\n")
             if assistant_start != -1:
-                response = response[assistant_start:].replace("[Assistant]", "")
-            return response.strip()
+                response = response[assistant_start + len("<|assistant|>\n"):]
+            
+            # 余分な空白や改行を整理
+            response = response.strip()
+            
+            # 特殊トークンを除去（もしあれば）
+            if "<|endoftext|>" in response:
+                response = response.split("<|endoftext|>")[0].strip()
+            
+            return response
 
 def main():
     """メインの対話ループ"""
@@ -134,11 +145,9 @@ def main():
                 print("入力が空です。もう一度入力してください。")
                 continue
             
-            print("\nAI: ", end='')
-            user_input = system_prompt + "user:" + user_input + "AI:" 
-            print(user_input)
+            #print("\nAI: ", end='')
             response = generate_response(model, ctx, encode, decode, user_input)
-            print(response)
+            print(f"\nAI: {response}")
             
         except KeyboardInterrupt:
             print("\n\n対話を終了します。")

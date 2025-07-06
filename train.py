@@ -37,7 +37,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
-from dataset_loader import create_hf_dataloader, DATASET_CONFIGS
+from dataset_loader import create_hf_dataloader, create_multi_hf_dataloader, DATASET_CONFIGS
 
 # -----------------------------------------------------------------------------
 # 日本語事前学習用のデフォルト設定値
@@ -57,8 +57,8 @@ wandb_run_name = 'pretrain-japanese'
 dataset = 'wikitext'  # 事前学習用データセット
 # 外部データセット設定
 use_external_dataset = True  # 外部データセットを使用
-dataset_name = "wikitext"  # Hugging Faceデータセット名
-dataset_config = "wikitext-103-raw-v1"  # データセット設定
+dataset_name = "ce-lery/mistral-3b-dataset"  # Hugging Faceデータセット名
+dataset_config = None  # データセット設定
 text_column = "text"  # テキストカラム名
 streaming = True  # 大規模データセットなのでストリーミング
 cache_dir = None  # キャッシュディレクトリ
@@ -100,7 +100,17 @@ torch._dynamo.config.suppress_errors = True
 # -----------------------------------------------------------------------------
 config_keys = [k for k,v in globals().items() if not k.startswith('_') and isinstance(v, (int, float, bool, str))]
 exec(open('configurator.py', encoding='utf-8').read()) # コマンドラインまたは設定ファイルからの上書き
+
+# 設定辞書を作成（混合データセット設定も含める）
 config = {k: globals()[k] for k in config_keys} # ログ記録に使用
+
+# 混合データセット設定を追加（存在する場合）
+if 'use_multi_dataset' in globals():
+    config['use_multi_dataset'] = globals()['use_multi_dataset']
+if 'mixed_datasets' in globals():
+    config['mixed_datasets'] = globals()['mixed_datasets']
+if 'dataset_mix_ratios' in globals():
+    config['dataset_mix_ratios'] = globals()['dataset_mix_ratios']
 # -----------------------------------------------------------------------------
 
 # 初期化、派生属性、I/O設定
@@ -146,35 +156,83 @@ data_dir = os.path.join('data', dataset)
 # 外部データセット用のデータローダー
 external_dataloader = None
 if use_external_dataset:
-    print(f"外部データセット '{dataset_name}' を設定しています...")
+    # 混合データセットモードのチェック
+    if 'use_multi_dataset' in config and config.get('use_multi_dataset', False):
+        print("=" * 60)
+        print("🔄 混合データセットモードで初期化しています...")
+        print("=" * 60)
+        try:
+            mixed_datasets = config.get('mixed_datasets', [])
+            dataset_mix_ratios = config.get('dataset_mix_ratios', None)
+            
+            if not mixed_datasets:
+                raise ValueError("mixed_datasetsが設定されていません")
+            
+            print(f"📊 {len(mixed_datasets)}個の日本語データセットを混合学習します:")
+            for i, ds_config in enumerate(mixed_datasets):
+                ratio = dataset_mix_ratios[i] if dataset_mix_ratios else 1.0/len(mixed_datasets)
+                print(f"  {i+1}. {ds_config['dataset_name']} (混合比率: {ratio:.1%})")
+            
+            print("\n🚀 混合データローダーを初期化中...")
+            external_dataloader = create_multi_hf_dataloader(
+                mixed_datasets, 
+                dataset_mix_ratios, 
+                device
+            )
+            print("✅ 混合データセットの初期化が完了しました")
+            dataset_name = f"混合データセット({len(mixed_datasets)}個)"  # ログ用
+        except Exception as e:
+            print(f"❌ 混合データセットの初期化に失敗しました: {e}")
+            print("⚠️  単一データセットにフォールバックします")
+            print("=" * 60)
     
-    # 設定辞書を作成
-    if dataset_name in DATASET_CONFIGS:
-        hf_config = DATASET_CONFIGS[dataset_name].copy()
-    else:
-        hf_config = {}
-    
-    # 設定を上書き
-    hf_config.update({
-        'dataset_config': dataset_config,
-        'text_column': text_column,
-        'streaming': streaming,
-        'cache_dir': cache_dir,
-        'tokenizer_type': tokenizer_type,
-        'block_size': block_size,
-        'batch_size': batch_size,
-        'seed': 1337,
-        'format_instruction': format_instruction,
-        'instruction_template': instruction_template
-    })
-    
-    try:
-        external_dataloader = create_hf_dataloader(dataset_name, hf_config, device)
-        print(f"外部データセット '{dataset_name}' の初期化が完了しました")
-    except Exception as e:
-        print(f"外部データセットの初期化に失敗しました: {e}")
-        print("ローカルデータセットにフォールバックします")
-        use_external_dataset = False
+    # 単一データセットモード（フォールバックも含む）
+    if external_dataloader is None:
+        print(f"外部データセット '{dataset_name}' を設定しています...")
+        
+        # 設定辞書を作成
+        if dataset_name in DATASET_CONFIGS:
+            hf_config = DATASET_CONFIGS[dataset_name].copy()
+        else:
+            hf_config = {}
+        
+        # 設定を上書き
+        hf_config.update({
+            'dataset_config': dataset_config,
+            'text_column': text_column,
+            'streaming': streaming,
+            'cache_dir': cache_dir,
+            'tokenizer_type': tokenizer_type,
+            'block_size': block_size,
+            'batch_size': batch_size,
+            'seed': 1337,
+            'format_instruction': format_instruction,
+            'instruction_template': instruction_template
+        })
+        
+        try:
+            external_dataloader = create_hf_dataloader(dataset_name, hf_config, device)
+            print(f"外部データセット '{dataset_name}' の初期化が完了しました")
+        except Exception as e:
+            print(f"外部データセット '{dataset_name}' の初期化に失敗しました: {e}")
+            print("フォールバック: wikitext-103-raw-v1を使用します")
+            
+            # フォールバック設定
+            fallback_config = hf_config.copy()
+            fallback_config.update({
+                'dataset_config': 'wikitext-103-raw-v1',
+                'text_column': 'text',
+                'streaming': True
+            })
+            
+            try:
+                external_dataloader = create_hf_dataloader("wikitext", fallback_config, device)
+                print(f"フォールバックデータセット 'wikitext' の初期化が完了しました")
+                dataset_name = "wikitext"  # ログ用に更新
+            except Exception as e2:
+                print(f"フォールバックデータセットの初期化にも失敗しました: {e2}")
+                print("ローカルデータセットにフォールバックします")
+                use_external_dataset = False
 
 def get_batch(split):
     if use_external_dataset and external_dataloader:
@@ -324,6 +382,34 @@ if wandb_log and master_process:
     import wandb
     wandb.init(project=wandb_project, name=wandb_run_name, config=config)
 
+# 学習開始の情報表示
+if master_process:
+    print("\n" + "=" * 80)
+    print("🎯 学習開始")
+    print("=" * 80)
+    if use_external_dataset and external_dataloader:
+        if 'use_multi_dataset' in config and config.get('use_multi_dataset', False):
+            print(f"📊 データセット: {dataset_name}")
+            print(f"🔄 混合学習モード: 有効")
+            mixed_datasets = config.get('mixed_datasets', [])
+            dataset_mix_ratios = config.get('dataset_mix_ratios', None)
+            for i, ds_config in enumerate(mixed_datasets):
+                ratio = dataset_mix_ratios[i] if dataset_mix_ratios else 1.0/len(mixed_datasets)
+                print(f"   - {ds_config['dataset_name']} ({ratio:.1%})")
+        else:
+            print(f"📊 データセット: {dataset_name}")
+            print(f"🔄 混合学習モード: 無効")
+    else:
+        print(f"📊 データセット: {dataset} (ローカル)")
+        print(f"🔄 混合学習モード: 無効")
+    
+    print(f"🎯 最大イテレーション数: {max_iters:,}")
+    print(f"📈 学習率: {learning_rate}")
+    print(f"🗂️  バッチサイズ: {batch_size}")
+    print(f"📏 ブロックサイズ: {block_size}")
+    print(f"🏗️  モデルパラメータ数: {model.get_num_params():,}")
+    print("=" * 80)
+
 # 学習ループ
 X, Y = get_batch('train') # 最初のバッチを取得
 t0 = time.time()
@@ -408,7 +494,18 @@ while True:
         if local_iter_num >= 5: # 学習ループが落ち着くまで待機
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
-        print(f"イテレーション {iter_num}: 損失 {lossf:.4f}, 時間 {dt*1000:.2f}ms, MFU {running_mfu*100:.2f}%")
+        
+        # データセット情報を含むログメッセージ
+        dataset_info = ""
+        if use_external_dataset and external_dataloader:
+            if 'use_multi_dataset' in config and config.get('use_multi_dataset', False):
+                dataset_info = f" | 混合学習"
+            else:
+                dataset_info = f" | {dataset_name}"
+        else:
+            dataset_info = f" | {dataset}"
+            
+        print(f"イテレーション {iter_num}: 損失 {lossf:.4f}, 時間 {dt*1000:.2f}ms, MFU {running_mfu*100:.2f}%{dataset_info}")
     iter_num += 1
     local_iter_num += 1
 

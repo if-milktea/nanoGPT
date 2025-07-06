@@ -325,6 +325,109 @@ def create_hf_dataloader(
     )
 
 
+class MultiDatasetLoader:
+    """
+    複数のデータセットを混合して使用するデータローダー
+    各データセットから指定された比率でサンプリング
+    """
+    
+    def __init__(
+        self,
+        dataset_configs: list,
+        mix_ratios: list = None,
+        device: str = "cuda",
+        seed: int = 1337
+    ):
+        """
+        複数データセットの初期化
+        
+        Args:
+            dataset_configs: 各データセットの設定辞書のリスト
+            mix_ratios: 各データセットの混合比率（Noneの場合は均等）
+            device: 使用デバイス
+            seed: ランダムシード
+        """
+        self.dataset_configs = dataset_configs
+        self.mix_ratios = mix_ratios or [1.0] * len(dataset_configs)
+        self.device = device
+        self.seed = seed
+        
+        # 比率を正規化
+        total_ratio = sum(self.mix_ratios)
+        self.mix_ratios = [r / total_ratio for r in self.mix_ratios]
+        
+        # 各データセットローダーを初期化
+        self.loaders = []
+        for i, config in enumerate(dataset_configs):
+            print(f"データセット {i+1}/{len(dataset_configs)} を初期化中: {config['dataset_name']}")
+            # configをコピーしてseed、deviceを個別に設定
+            config_copy = config.copy()
+            config_copy['device'] = device
+            config_copy['seed'] = seed + i
+            loader = HuggingFaceDataLoader(**config_copy)
+            self.loaders.append(loader)
+        
+        # 統一されたvocab_sizeを使用（最初のローダーから）
+        self.vocab_size = self.loaders[0].get_vocab_size()
+        
+        print(f"混合データセットの初期化完了 - {len(self.loaders)}個のデータセット")
+        print(f"混合比率: {[f'{r:.2f}' for r in self.mix_ratios]}")
+    
+    def get_batch(self, split):
+        """
+        混合データセットからバッチを取得
+        どのデータセットからサンプリングしているかの統計を保持
+        """
+        import random
+        
+        # 混合比率に基づいてデータセットを選択
+        dataset_idx = random.choices(range(len(self.loaders)), weights=self.mix_ratios)[0]
+        
+        # 統計記録（オプション）
+        if not hasattr(self, 'batch_count'):
+            self.batch_count = 0
+            self.dataset_usage = [0] * len(self.loaders)
+        
+        self.batch_count += 1
+        self.dataset_usage[dataset_idx] += 1
+        
+        # 1000回に1回使用統計を表示
+        if self.batch_count % 1000 == 0:
+            print(f"\n📊 データセット使用統計 (過去1000バッチ):")
+            for i, usage in enumerate(self.dataset_usage):
+                percentage = (usage / self.batch_count) * 100
+                expected = self.mix_ratios[i] * 100
+                dataset_name = self.dataset_configs[i]['dataset_name']
+                print(f"  {dataset_name}: {percentage:.1f}% (期待値: {expected:.1f}%)")
+            print("")
+        
+        # 選択されたデータセットからバッチを取得
+        return self.loaders[dataset_idx].get_batch(split)
+    
+    def get_vocab_size(self):
+        """ボキャブラリサイズを返す"""
+        return self.vocab_size
+    
+    def save_tokenizer_meta(self, path):
+        """トークナイザーメタ情報を保存（最初のローダーから）"""
+        return self.loaders[0].save_tokenizer_meta(path)
+
+
+def create_multi_hf_dataloader(dataset_configs, mix_ratios=None, device="cuda"):
+    """
+    複数のHugging Faceデータセットを混合したデータローダーを作成
+    
+    Args:
+        dataset_configs: データセット設定のリスト
+        mix_ratios: 混合比率のリスト
+        device: 使用デバイス
+    
+    Returns:
+        MultiDatasetLoader: 複数データセット対応ローダー
+    """
+    return MultiDatasetLoader(dataset_configs, mix_ratios, device)
+
+
 # よく使用されるデータセットの設定例
 DATASET_CONFIGS = {
     "wikitext": {
@@ -366,6 +469,19 @@ DATASET_CONFIGS = {
     },
     "fujiki/wiki40b_ja": {
         "dataset_config": None,
+        "text_column": "text", 
+        "streaming": True,
+        "format_instruction": False
+    },
+    # 大規模日本語データセット
+    "mc4": {
+        "dataset_config": "ja", 
+        "text_column": "text",
+        "streaming": True,
+        "format_instruction": False
+    },
+    "cc100": {
+        "dataset_config": "ja",
         "text_column": "text", 
         "streaming": True,
         "format_instruction": False

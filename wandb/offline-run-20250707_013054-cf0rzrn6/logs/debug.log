@@ -1,0 +1,23 @@
+2025-07-07 01:30:54,993 INFO    MainThread:17820 [wandb_setup.py:_flush():68] Current SDK version is 0.19.10
+2025-07-07 01:30:54,993 INFO    MainThread:17820 [wandb_setup.py:_flush():68] Configure stats pid to 17820
+2025-07-07 01:30:54,993 INFO    MainThread:17820 [wandb_setup.py:_flush():68] Loading settings from C:\Users\81908\.config\wandb\settings
+2025-07-07 01:30:54,993 INFO    MainThread:17820 [wandb_setup.py:_flush():68] Loading settings from D:\github\nanoGPT\wandb\settings
+2025-07-07 01:30:54,993 INFO    MainThread:17820 [wandb_setup.py:_flush():68] Loading settings from environment variables
+2025-07-07 01:30:54,993 INFO    MainThread:17820 [wandb_init.py:setup_run_log_directory():724] Logging user logs to D:\github\nanoGPT\wandb\offline-run-20250707_013054-cf0rzrn6\logs\debug.log
+2025-07-07 01:30:54,993 INFO    MainThread:17820 [wandb_init.py:setup_run_log_directory():725] Logging internal logs to D:\github\nanoGPT\wandb\offline-run-20250707_013054-cf0rzrn6\logs\debug-internal.log
+2025-07-07 01:30:54,993 INFO    MainThread:17820 [wandb_init.py:init():852] calling init triggers
+2025-07-07 01:30:54,994 INFO    MainThread:17820 [wandb_init.py:init():857] wandb.init called with sweep_config: {}
+config: {'out_dir': 'out_pretrain', 'eval_interval': 5000, 'log_interval': 1000, 'eval_iters': 100, 'eval_only': True, 'always_save_checkpoint': True, 'init_from': 'scratch', 'wandb_log': True, 'wandb_project': 'nanogpt-japanese-pretrain', 'wandb_run_name': 'pretrain-japanese', 'dataset': 'wikitext', 'use_external_dataset': True, 'dataset_name': 'fujiki/wiki40b_ja', 'text_column': 'text', 'streaming': True, 'tokenizer_type': 'gpt2', 'format_instruction': False, 'gradient_accumulation_steps': 64, 'batch_size': 1, 'block_size': 512, 'n_layer': 16, 'n_head': 16, 'n_embd': 1024, 'dropout': 0.1, 'bias': False, 'learning_rate': 0.0003, 'max_iters': 4600000, 'weight_decay': 0.1, 'beta1': 0.9, 'beta2': 0.95, 'grad_clip': 1.0, 'decay_lr': True, 'warmup_iters': 100000, 'lr_decay_iters': 4600000, 'min_lr': 1e-05, 'backend': 'nccl', 'device': 'cuda', 'dtype': 'float16', 'compile': False, '_wandb': {}}
+2025-07-07 01:30:54,994 INFO    MainThread:17820 [wandb_init.py:init():893] starting backend
+2025-07-07 01:30:54,994 INFO    MainThread:17820 [wandb_init.py:init():897] sending inform_init request
+2025-07-07 01:30:55,003 INFO    MainThread:17820 [backend.py:_multiprocessing_setup():101] multiprocessing start_methods=spawn, using: spawn
+2025-07-07 01:30:55,003 INFO    MainThread:17820 [wandb_init.py:init():907] backend started and connected
+2025-07-07 01:30:55,005 INFO    MainThread:17820 [wandb_init.py:init():1002] updated telemetry
+2025-07-07 01:30:55,043 INFO    MainThread:17820 [wandb_init.py:init():1026] communicating run to backend with 90.0 second timeout
+2025-07-07 01:30:55,164 INFO    MainThread:17820 [wandb_init.py:init():1101] starting run threads in backend
+2025-07-07 01:30:55,236 INFO    MainThread:17820 [wandb_run.py:_console_start():2566] atexit reg
+2025-07-07 01:30:55,236 INFO    MainThread:17820 [wandb_run.py:_redirect():2414] redirect: wrap_raw
+2025-07-07 01:30:55,236 INFO    MainThread:17820 [wandb_run.py:_redirect():2483] Wrapping output streams.
+2025-07-07 01:30:55,236 INFO    MainThread:17820 [wandb_run.py:_redirect():2506] Redirects installed.
+2025-07-07 01:30:55,238 INFO    MainThread:17820 [wandb_init.py:init():1147] run started, returning control to user process
+2025-07-07 01:32:39,038 INFO    MsgRouterThr:17820 [mailbox.py:close():129] [no run ID] Closing mailbox, abandoning 0 handles.
