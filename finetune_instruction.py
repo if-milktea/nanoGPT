@@ -69,7 +69,7 @@ instruction_template = "chat"  # チャット形式のテンプレートを使�
 # インストラクションチューニング用バッチ設定
 gradient_accumulation_steps = 4  # ファインチューニング用
 batch_size = 8  # インストラクションチューニング用バッチサイズ
-block_size = 1024  # コンテキスト長
+block_size = 512  # コンテキスト長（事前学習済みモデルと同じサイズに設定）
 # モデル設定（事前学習済みモデルから継承されるため通常は不要だが、上書き可能）
 n_layer = 16          # 事前学習と同じ
 n_head = 16           # 事前学習と同じ
@@ -168,6 +168,9 @@ if use_external_dataset:
         'instruction_template': instruction_template
     })
     
+    print(f"データローダーに渡すblock_size: {hf_config['block_size']}")
+    print(f"ファイナル設定: {hf_config}")
+    
     try:
         external_dataloader = create_hf_dataloader(dataset_name, hf_config, device)
         print(f"インストラクション用外部データセット '{dataset_name}' の初期化が完了しました")
@@ -181,7 +184,10 @@ def get_batch(split):
     if use_external_dataset and external_dataloader:
         # 外部データセットを使用（インストラクションチューニングでは必須）
         try:
-            return external_dataloader.get_batch(split)
+            x, y = external_dataloader.get_batch(split)
+            print(f"取得したバッチサイズ: x.shape={x.shape}, y.shape={y.shape}")
+            print(f"期待されるblock_size: {block_size}")
+            return x, y
         except Exception as e:
             print(f"外部データセットからのバッチ取得エラー: {e}")
             raise
@@ -235,11 +241,13 @@ elif os.path.exists(init_from):
     print(f"事前学習済みモデルから初期化: {init_from}")
     checkpoint = torch.load(init_from, map_location=device)
     checkpoint_model_args = checkpoint['model_args']
+    print(f"事前学習済みモデルの設定: {checkpoint_model_args}")
     # 事前学習済みモデルの設定を使用
     for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
         model_args[k] = checkpoint_model_args[k]
     # dropout率は更新可能
     model_args['dropout'] = dropout
+    print(f"最終的なモデル設定: {model_args}")
     # モデルを作成
     gptconf = GPTConfig(**model_args)
     model = GPT(gptconf)

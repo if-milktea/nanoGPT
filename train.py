@@ -48,7 +48,7 @@ log_interval = 100       # ログ出力間隔
 eval_iters = 200      # 評価イテレーション数
 eval_only = False # Trueの場合、最初の評価後にスクリプトを終了
 always_save_checkpoint = True # Trueの場合、評価後に常にチェックポイントを保存
-init_from = 'scratch' # 'scratch'または'resume'またはGPT-2モデル名
+init_from = 'resume' # 'scratch'または'resume'またはGPT-2モデル名
 # wandbによるログ記録
 wandb_log = True # デフォルトで有効
 wandb_project = 'nanogpt-japanese-pretrain'

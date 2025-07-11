@@ -14,7 +14,7 @@ from model import GPTConfig, GPT
 system_prompt = "あなたは人間のために働くAIエージェントです。以下の質問とお問い合わせにお答えください。"
 
 init_from = 'resume' # 'resume'（out_dirから再開）または 'gpt2-xl'などのGPT-2モデルを指定
-out_dir = 'out_dolly_ja' # init_fromが'resume'でない場合は無視される
+out_dir = 'out_pretrain' # init_fromが'resume'でない場合は無視される
 temperature = 0.8 # 1.0 = 変更なし, < 1.0 = よりランダム性が低い, > 1.0 = よりランダム性が高い
 top_k = 200 # 最も確率の高いtop_kのトークンのみを保持し、他は確率を0に設定
 max_new_tokens = 100  # 各応答で生成する最大トークン数
