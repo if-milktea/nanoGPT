@@ -20,3 +20,4 @@ config: {'out_dir': 'out_dolly_ja', 'eval_interval': 500, 'log_interval': 50, 'e
 2025-07-12 08:36:44,836 INFO    MainThread:17548 [wandb_run.py:_redirect():2483] Wrapping output streams.
 2025-07-12 08:36:44,836 INFO    MainThread:17548 [wandb_run.py:_redirect():2506] Redirects installed.
 2025-07-12 08:36:44,838 INFO    MainThread:17548 [wandb_init.py:init():1147] run started, returning control to user process
+2025-07-13 02:41:46,069 INFO    MsgRouterThr:17548 [mailbox.py:close():129] [no run ID] Closing mailbox, abandoning 0 handles.

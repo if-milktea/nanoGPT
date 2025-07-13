@@ -14,7 +14,7 @@ from model import GPTConfig, GPT
 system_prompt = "あなたは人間のために働くAIエージェントです。以下の質問とお問い合わせにお答えください。"
 
 init_from = 'resume' # 'resume'（out_dirから再開）または 'gpt2-xl'などのGPT-2モデルを指定
-out_dir = 'out_pretrain' # init_fromが'resume'でない場合は無視される
+out_dir = 'out_dolly_ja' # init_fromが'resume'でない場合は無視される
 temperature = 0.8 # 1.0 = 変更なし, < 1.0 = よりランダム性が低い, > 1.0 = よりランダム性が高い
 top_k = 200 # 最も確率の高いtop_kのトークンのみを保持し、他は確率を0に設定
 max_new_tokens = 100  # 各応答で生成する最大トークン数
@@ -62,19 +62,45 @@ def init_model():
 def setup_tokenizer(checkpoint=None):
     """トークナイザーのセットアップ"""
     load_meta = False
-    if checkpoint and 'config' in checkpoint and 'dataset' in checkpoint['config']:
+    meta_path = None
+    
+    # インストラクションチューニング済みモデルの場合、out_dirからメタデータを読み込む
+    if checkpoint and init_from == 'resume':
+        meta_path = os.path.join(out_dir, 'meta.pkl')
+        load_meta = os.path.exists(meta_path)
+        if load_meta:
+            print(f"インストラクションチューニング用メタデータを {meta_path} から読み込んでいます...")
+    
+    # 従来のデータセット固有のメタファイルもチェック
+    if not load_meta and checkpoint and 'config' in checkpoint and 'dataset' in checkpoint['config']:
         meta_path = os.path.join('data', checkpoint['config']['dataset'], 'meta.pkl')
         load_meta = os.path.exists(meta_path)
+        if load_meta:
+            print(f"データセット用メタデータを {meta_path} から読み込んでいます...")
 
     if load_meta:
-        print(f"メタデータを {meta_path} から読み込んでいます...")
         with open(meta_path, 'rb') as f:
             meta = pickle.load(f)
-        stoi, itos = meta['stoi'], meta['itos']
-        encode = lambda s: [stoi[c] for c in s]
-        decode = lambda l: ''.join([itos[i] for i in l])
+        
+        # メタデータの構造を確認
+        if 'stoi' in meta and 'itos' in meta:
+            # 従来の文字レベルトークナイザー
+            stoi, itos = meta['stoi'], meta['itos']
+            encode = lambda s: [stoi[c] for c in s]
+            decode = lambda l: ''.join([itos[i] for i in l])
+        elif 'tokenizer_type' in meta and meta['tokenizer_type'] == 'gpt2':
+            # GPT-2トークナイザーを使用
+            print("メタデータでGPT-2トークナイザーが指定されています...")
+            enc = tiktoken.get_encoding("gpt2")
+            encode = lambda s: enc.encode(s, allowed_special={"<|endoftext|>"})
+            decode = lambda l: enc.decode(l)
+        else:
+            print("不明なメタデータ形式です。GPT-2エンコーディングを使用します...")
+            enc = tiktoken.get_encoding("gpt2")
+            encode = lambda s: enc.encode(s, allowed_special={"<|endoftext|>"})
+            decode = lambda l: enc.decode(l)
     else:
-        print("GPT-2エンコーディングを使用します...")
+        print("メタデータが見つかりません。GPT-2エンコーディングを使用します...")
         enc = tiktoken.get_encoding("gpt2")
         encode = lambda s: enc.encode(s, allowed_special={"<|endoftext|>"})
         decode = lambda l: enc.decode(l)
