@@ -5,6 +5,7 @@ import os
 import pickle
 from contextlib import nullcontext
 import torch
+import torch.nn.functional as F
 import tiktoken
 from model import GPTConfig, GPT
 
@@ -127,37 +128,83 @@ def generate_response(model, ctx, encode, decode, user_input):
     
     x = torch.tensor(input_ids, dtype=torch.long, device=device)[None, ...]
     
+    # 停止トークンのIDを取得
+    stop_tokens = []
+    try:
+        # 特殊トークンのIDを取得
+        if hasattr(encode, '__self__') and hasattr(encode.__self__, 'encode'):
+            # tiktoken encoder
+            enc = encode.__self__
+            endoftext_id = enc.encode("<|endoftext|>")[0] if enc.encode("<|endoftext|>") else None
+            if endoftext_id:
+                stop_tokens.append(endoftext_id)
+            # その他の停止トークン
+            for token in ["<|system|>", "<|user|>", "<|assistant|>"]:
+                token_ids = enc.encode(token)
+                if token_ids:
+                    stop_tokens.extend(token_ids)
+    except:
+        pass
+    
     with torch.no_grad():
         with ctx:
-            y = model.generate(x, max_new_tokens, temperature=temperature, top_k=top_k)
-            raw_response = decode(y[0].tolist())
+            # 1トークンずつ生成して停止条件をチェック
+            input_length = x.size(1)
+            generated = x.clone()
+            
+            for _ in range(max_new_tokens):
+                # 次のトークンを生成
+                with ctx:
+                    logits = model(generated)
+                    logits = logits[:, -1, :]  # 最後のトークンのlogitsのみ
+                    
+                    # temperature適用
+                    if temperature == 0.0:
+                        # greedy decoding
+                        next_token = torch.argmax(logits, dim=-1, keepdim=True)
+                    else:
+                        logits = logits / temperature
+                        
+                        # top-k サンプリング
+                        if top_k is not None:
+                            v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                            logits[logits < v[:, [-1]]] = -float('Inf')
+                        
+                        # サンプリング
+                        probs = F.softmax(logits, dim=-1)
+                        next_token = torch.multinomial(probs, num_samples=1)
+                
+                # 生成されたトークンを追加
+                generated = torch.cat([generated, next_token], dim=1)
+                
+                # 停止条件をチェック
+                next_token_id = next_token.item()
+                if next_token_id in stop_tokens:
+                    break
+                
+                # 部分的な応答をデコードして停止条件をチェック
+                partial_response = decode(generated[0][input_length:].tolist())
+                if any(stop_seq in partial_response for stop_seq in ["<|endoftext|>", "<|system|>", "<|user|>", "<|assistant|>"]):
+                    break
+            
+            # 完全な応答をデコード
+            raw_response = decode(generated[0].tolist())
             
             print(f"生の応答: {repr(raw_response)}")  # デバッグ用
             
             # 入力プロンプト部分を除去して応答のみを取得
-            # <|assistant|>以降の部分を抽出
-            assistant_start = raw_response.find("<|assistant|>\n")
-            if assistant_start != -1:
-                response = raw_response[assistant_start + len("<|assistant|>\n"):]
-            else:
-                # フォールバック：入力プロンプトの長さ分をスキップ
-                input_length = len(input_ids)
-                output_ids = y[0][input_length:].tolist()
-                response = decode(output_ids)
+            output_ids = generated[0][input_length:].tolist()
+            response = decode(output_ids)
+            
+            # 特殊トークンで分割して最初の部分のみを取得
+            for stop_seq in ["<|endoftext|>", "<|system|>", "<|user|>", "<|assistant|>"]:
+                if stop_seq in response:
+                    response = response.split(stop_seq)[0]
+                    break
             
             # 余分な空白や改行を整理
             response = response.strip()
             
-            # 特殊トークンを除去（もしあれば）
-            if "<|endoftext|>" in response:
-                response = response.split("<|endoftext|>")[0].strip()
-            
-            # システムプロンプトや他の特殊トークンも除去
-            if "<|system|>" in response:
-                response = response.split("<|system|>")[0].strip()
-            if "<|user|>" in response:
-                response = response.split("<|user|>")[0].strip()
-                
             return response
 
 def main():
