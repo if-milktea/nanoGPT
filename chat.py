@@ -15,9 +15,9 @@ system_prompt = "あなたは人間のために働くAIエージェントです�
 
 init_from = 'resume' # 'resume'（out_dirから再開）または 'gpt2-xl'などのGPT-2モデルを指定
 out_dir = 'out_dolly_ja' # init_fromが'resume'でない場合は無視される
-temperature = 0.8 # 1.0 = 変更なし, < 1.0 = よりランダム性が低い, > 1.0 = よりランダム性が高い
-top_k = 200 # 最も確率の高いtop_kのトークンのみを保持し、他は確率を0に設定
-max_new_tokens = 100  # 各応答で生成する最大トークン数
+temperature = 0.3 # より一貫した応答のため低めに設定
+top_k = 50 # より制限的にして一貫性を向上
+max_new_tokens = 200  # より長い応答を許可
 seed = 1337
 device = 'cuda' # 使用デバイス: 'cpu', 'cuda', 'cuda:0', 'cuda:1' など
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16'
