@@ -15,7 +15,7 @@ from model import GPTConfig, GPT
 system_prompt = "あなたは人間のために働くAIエージェントです。以下の質問とお問い合わせにお答えください。"
 
 init_from = 'resume' # 'resume'（out_dirから再開）または 'gpt2-xl'などのGPT-2モデルを指定
-out_dir = 'out_dolly_ja' # init_fromが'resume'でない場合は無視される
+out_dir = 'out_dolly_ja_rtx3060' # init_fromが'resume'でない場合は無視される
 temperature = 0.3 # より一貫した応答のため低めに設定
 top_k = 50 # より制限的にして一貫性を向上
 max_new_tokens = 200  # より長い応答を許可
