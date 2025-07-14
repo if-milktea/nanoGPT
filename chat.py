@@ -109,7 +109,7 @@ def setup_tokenizer(checkpoint=None):
 
 def generate_response(model, ctx, encode, decode, user_input):
     """ユーザー入力に対する応答を生成"""
-    # インストラクションチューニング時と同じ形式を使用
+    # インストラクションチューニング時と同じチャット形式を使用
     formatted_prompt = f"""<|system|>
 あなたは親切で知識豊富なAIアシスタントです。
 
@@ -119,19 +119,31 @@ def generate_response(model, ctx, encode, decode, user_input):
 <|assistant|>
 """
     
+    print(f"送信プロンプト: {repr(formatted_prompt)}")  # デバッグ用
+    
     input_ids = encode(formatted_prompt)
+    print(f"エンコード済みトークン数: {len(input_ids)}")  # デバッグ用
+    print(f"最初の10トークン: {input_ids[:10]}")  # デバッグ用
+    
     x = torch.tensor(input_ids, dtype=torch.long, device=device)[None, ...]
     
     with torch.no_grad():
         with ctx:
             y = model.generate(x, max_new_tokens, temperature=temperature, top_k=top_k)
-            response = decode(y[0].tolist())
+            raw_response = decode(y[0].tolist())
+            
+            print(f"生の応答: {repr(raw_response)}")  # デバッグ用
             
             # 入力プロンプト部分を除去して応答のみを取得
             # <|assistant|>以降の部分を抽出
-            assistant_start = response.find("<|assistant|>\n")
+            assistant_start = raw_response.find("<|assistant|>\n")
             if assistant_start != -1:
-                response = response[assistant_start + len("<|assistant|>\n"):]
+                response = raw_response[assistant_start + len("<|assistant|>\n"):]
+            else:
+                # フォールバック：入力プロンプトの長さ分をスキップ
+                input_length = len(input_ids)
+                output_ids = y[0][input_length:].tolist()
+                response = decode(output_ids)
             
             # 余分な空白や改行を整理
             response = response.strip()
@@ -140,6 +152,12 @@ def generate_response(model, ctx, encode, decode, user_input):
             if "<|endoftext|>" in response:
                 response = response.split("<|endoftext|>")[0].strip()
             
+            # システムプロンプトや他の特殊トークンも除去
+            if "<|system|>" in response:
+                response = response.split("<|system|>")[0].strip()
+            if "<|user|>" in response:
+                response = response.split("<|user|>")[0].strip()
+                
             return response
 
 def main():

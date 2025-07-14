@@ -68,14 +68,44 @@ class HuggingFaceDataLoader:
         self.device = device
         self.seed = seed
         self.format_instruction = format_instruction
-        self.instruction_template = instruction_template or """### 指示:
+        
+        # 事前定義されたテンプレート
+        predefined_templates = {
+            "default": """### 指示:
 {instruction}
 
 ### 入力:
 {input}
 
 ### 回答:
+{output}""",
+            "chat": """<|system|>
+あなたは親切で知識豊富なAIアシスタントです。
+
+<|user|>
+{instruction}{input}
+
+<|assistant|>
+{output}""",
+            "alpaca": """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
+
+### Instruction:
+{instruction}
+
+### Input:
+{input}
+
+### Response:
 {output}"""
+        }
+        
+        # テンプレートの設定
+        if instruction_template in predefined_templates:
+            self.instruction_template = predefined_templates[instruction_template]
+        elif instruction_template:
+            self.instruction_template = instruction_template
+        else:
+            self.instruction_template = predefined_templates["default"]
         
         # トークナイザーの初期化
         self._init_tokenizer()
